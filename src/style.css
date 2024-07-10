@@ -39,7 +39,7 @@
 
 .location-btn {
     border: none;
-    background-color: white;
+    background-color: transparent;
     margin: 10px 0;
     cursor: pointer;
     text-align: start;
