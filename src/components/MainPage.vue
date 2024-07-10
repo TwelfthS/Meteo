@@ -1,15 +1,31 @@
 <script setup lang="js">
-import { ref, onMounted } from 'vue';
+import { ref } from 'vue';
 import axios from 'axios';
 
 const data = ref([])
 const opened = ref({})
 const meteo = ref({})
 const search = ref('')
+const errorCity = ref('')
+const errorMeteo = ref('')
 
 const onSubmit = async () => {
-  const response = await axios.get(`https://geocoding-api.open-meteo.com/v1/search?name=${search.value}&count=10&language=en&format=json`)
-  data.value = response.data.results
+  if (search.value) {
+    data.value = []
+    meteo.value = {}
+    try {
+      const response = await axios.get(`https://geocoding-api.open-meteo.com/v1/search?name=${search.value}&count=10&language=en&format=json`)
+      if (response.data.results) {
+        data.value = response.data.results
+        errorCity.value = ''
+      } else {
+        errorCity.value = 'City not found'
+      }
+    } catch (err) {
+      console.log(err)
+      errorCity.value = 'Error fetching data'
+    }
+  }
 }
 
 const open = async (event) => {
@@ -22,9 +38,15 @@ const open = async (event) => {
   endDate.setDate(currentDate.getDate() + 7)
   const endDateFormatted = getDate(endDate)
   const timezone = Intl.DateTimeFormat('en-US').resolvedOptions().timeZone
-  const response = await axios.get(
-    `https://api.open-meteo.com/v1/forecast?latitude=${opened.value.latitude}&longitude=${opened.value.longitude}&hourly=temperature_2m&start_date=${currentDateFormatted}&end_date=${endDateFormatted}&timezone=${timezone}&current_weather=true`)
-  meteo.value = response.data
+  try {
+    const response = await axios.get(
+      `https://api.open-meteo.com/v1/forecast?latitude=${opened.value.latitude}&longitude=${opened.value.longitude}&hourly=temperature_2m&start_date=${currentDateFormatted}&end_date=${endDateFormatted}&timezone=${timezone}&current_weather=true`)
+    meteo.value = response.data
+    errorMeteo.value = ''
+  } catch (err) {
+    console.log(err)
+    errorMeteo.value = 'Error fetching data'
+  }
 }
 
 const getDate = (date) => {
@@ -44,20 +66,27 @@ const getDate = (date) => {
     <button class="search-btn">Search</button>
   </form>
 
-  <div class="locations">
+  <p v-if="errorCity" class="error-text">{{ errorCity }}</p>
+
+  <div v-if="data.length > 0" class="locations">
     <button v-for="value in data" class="location-btn" :id="value.id" @click="open">{{ value.name + ', ' + value.admin1 + ', ' + value.country }}</button>
   </div>
+
+  <p v-if="errorMeteo" class="error-text">{{ errorMeteo }}</p>
+
   <div v-if="meteo.current_weather">
-    <h3>Current weather</h3>
-    <p>{{ meteo.current_weather.temperature }}</p>
+    <h3>Current weather in {{ opened.name + ', ' + opened.admin1 + ', ' + opened.country }}</h3>
+    <p>{{ meteo.current_weather.temperature }} C</p>
   </div>
-  <h3>Weather forecast</h3>
-  <div v-if="meteo.hourly" class="meteo">
-    <ul v-for="dayIndex in 7" class="meteo-day">
-      <h4>{{ meteo.hourly.time[(dayIndex - 1) * 24].slice(0, 10) }}</h4>
-      <li v-for="hourIndex in 24">
-        {{ meteo.hourly.time[(hourIndex - 1) + (dayIndex - 1) * 24].slice(-5) }} &nbsp — &nbsp {{ meteo.hourly.temperature_2m[(hourIndex - 1) + (dayIndex - 1) * 24] }} C
-      </li>
-    </ul>
+  <div v-if="meteo.hourly" class="forecast">
+    <h3>Weather forecast for {{ opened.name + ', ' + opened.admin1 + ', ' + opened.country }}</h3>
+    <div class="meteo">
+      <ul v-for="dayIndex in 7" class="meteo-day">
+        <h4>{{ meteo.hourly.time[(dayIndex - 1) * 24].slice(0, 10) }}</h4>
+        <li v-for="hourIndex in 24">
+          {{ meteo.hourly.time[(hourIndex - 1) + (dayIndex - 1) * 24].slice(-5) }} &nbsp — &nbsp {{ meteo.hourly.temperature_2m[(hourIndex - 1) + (dayIndex - 1) * 24] }} C
+        </li>
+      </ul>
+    </div>
   </div>
 </template>

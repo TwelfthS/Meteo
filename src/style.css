@@ -24,6 +24,11 @@
     border-radius: 5px;
 }
 
+.error-text {
+    color: rgb(255, 0, 0);
+    font-size: 20px;
+}
+
 .locations {
     display: flex;
     flex-direction: column;
